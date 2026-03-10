@@ -21,8 +21,9 @@
 |---|---|
 | **macOS** | iMessage 功能依赖 macOS |
 | **[uv](https://docs.astral.sh/uv/)** | Python 运行工具 — `setup.sh` 自动安装 |
-| **[TikHub API Key](https://tikhub.io)** | 免费套餐可用，在 tikhub.io 申请 |
+| **[TikHub API Key](https://tikhub.io)** | 在 tikhub.io 申请 |
 | **Messages.app** | 需在 Mac 上登录 iMessage |
+| **完全磁盘访问权限** | 终端需要此权限才能读取 iMessage（见下方说明） |
 
 无需安装 Node.js、npm 或 Python。
 
@@ -37,17 +38,26 @@ git clone https://github.com/ruijun1110/Influencer-Mobile-Scout.git
 cd Influencer-Mobile-Scout
 ```
 
-### 2. 运行安装脚本
+### 2. 授予终端完全磁盘访问权限
 
-在 Finder 中双击 **`setup.command`**。
+机器人需要读取 iMessage 数据库，这需要「完全磁盘访问权限」。
+
+1. 打开 **系统设置 > 隐私与安全性 > 完全磁盘访问权限**
+2. 启用 **终端**（Terminal 或 iTerm 等你使用的终端应用）
+3. **退出并重新打开终端**，使权限生效
+
+### 3. 运行安装脚本
+
+在 Finder 中双击 **`setup.command`**（或在终端中执行 `bash setup.sh`）。
 
 脚本将自动完成：
 - 安装 `uv`（如未安装）
 - 从模板创建 `.claude/.env` 并打开供编辑
+- 验证完全磁盘访问权限是否生效
 - 将机器人注册为登录项，每次登录自动启动
 - 立即启动机器人
 
-### 3. 填写 API Key
+### 4. 填写 API Key
 
 `.claude/.env` 打开后，填入 TikHub API Key：
 
@@ -68,6 +78,8 @@ NOTIFY_PHONE=+86XXXXXXXXXXX   # 可选，用于接收搜索进度通知
 
 **机器人意外停止时：** 在 Finder 中双击 **`start.command`** 重新启动。
 
+**查看状态：** 双击 **`status.command`** — 显示运行状态、运行时长、最近处理的消息、错误信息和近期日志。
+
 启动后，从任意可以 iMessage 你 Mac 的手机发送以下内容：
 
 | 消息内容 | 效果 |
@@ -83,13 +95,19 @@ NOTIFY_PHONE=+86XXXXXXXXXXX   # 可选，用于接收搜索进度通知
 
 机器人在登录时自动启动。
 
-查看日志：`tail -f /tmp/tiktok-lookup.log`
-
 ---
 
 ## 活动配置
 
 活动定义了目标受众、筛选阈值和关键词队列。每个活动位于 `context/campaigns/<活动名>/` 目录下，需要两个文件。
+
+复制示例模板开始配置：
+
+```bash
+cp -r context/campaigns/_example context/campaigns/MyCampaign
+```
+
+然后编辑这两个文件：
 
 ### `campaign.md`
 
@@ -139,25 +157,31 @@ max_candidates_per_keyword: 5  # 每个关键词最多审核的达人数量
 
 ```
 ├── context/
-│   └── campaigns/          ← 每个活动一个文件夹
-├── data/                   ← Excel 输出与看板（已加入 .gitignore）
-├── setup.sh                ← 一次性安装脚本
+│   └── campaigns/
+│       └── _example/          ← 复制此模板创建新活动
+├── data/                      ← Excel 输出与看板（已加入 .gitignore）
+├── setup.command              ← 双击安装
+├── start.command              ← 双击启动机器人
+├── status.command             ← 双击查看机器人状态
+├── reset.command              ← 双击卸载所有配置
 └── .claude/
-    ├── .env                ← API Key（已加入 .gitignore）
-    ├── .env.example        ← 配置模板
+    ├── .env                   ← API Key（已加入 .gitignore）
+    ├── .env.example           ← 配置模板
     └── skills/
-        ├── scout-api/      ← 搜索脚本
-        └── tiktok-lookup/  ← iMessage 机器人 (bot.py)
+        ├── scout-api/         ← 搜索脚本
+        └── tiktok-lookup/     ← iMessage 机器人 (bot.py)
 ```
 
 ---
 
 ## 常见问题
 
-| 错误 | 解决方法 |
+| 问题 | 解决方法 |
 |---|---|
-| 机器人不回复消息 | 双击 `start.command` 重启；查看 `/tmp/tiktok-lookup.log` |
+| 机器人不回复消息 | 双击 `status.command` 查看状态；双击 `start.command` 重启 |
 | `TIKHUB_API_KEY not set` | 检查 `.claude/.env` 文件 |
+| `Cannot read Messages database` | 授予终端「完全磁盘访问权限」，然后退出并重新打开终端 |
 | `uv: command not found` | 重新运行 `setup.command` |
 | 登录后机器人未自动启动 | 重新运行 `setup.command` 重新注册登录项 |
 | Messages.app 未登录 | 在 Messages.app 设置中登录 iMessage |
+| 想要全新重装 | 双击 `reset.command`，然后双击 `setup.command` |

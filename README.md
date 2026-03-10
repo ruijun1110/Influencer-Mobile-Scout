@@ -23,6 +23,7 @@ A toolkit for discovering and auditing TikTok influencers — running entirely o
 | **[uv](https://docs.astral.sh/uv/)** | Python runner — installed automatically by `setup.sh` |
 | **[TikHub API key](https://tikhub.io)** | Get one at tikhub.io |
 | **Messages.app** | Must be signed into iMessage on the Mac |
+| **Full Disk Access** | Terminal needs Full Disk Access to read iMessages (see below) |
 
 No Node.js, no npm, no Python install required.
 
@@ -37,17 +38,26 @@ git clone https://github.com/ruijun1110/Influencer-Mobile-Scout.git
 cd Influencer-Mobile-Scout
 ```
 
-### 2. Run setup
+### 2. Grant Full Disk Access to Terminal
 
-Double-click **`setup.command`** in Finder.
+The bot reads your iMessage database, which requires Full Disk Access.
+
+1. Open **System Settings > Privacy & Security > Full Disk Access**
+2. Enable **Terminal** (or iTerm / your terminal app)
+3. **Quit and reopen Terminal** for the change to take effect
+
+### 3. Run setup
+
+Double-click **`setup.command`** in Finder (or run `bash setup.sh` from Terminal).
 
 This will:
 - Install `uv` if not already present
 - Create `.claude/.env` from the template and open it for editing
+- Verify Full Disk Access is working
 - Register the bot as a Login Item so it starts automatically on every login
 - Start the bot immediately
 
-### 3. Fill in your API key
+### 4. Fill in your API key
 
 When `.claude/.env` opens, add your TikHub API key:
 
@@ -68,6 +78,8 @@ Save and close. That's it.
 
 **If the bot stops unexpectedly:** double-click **`start.command`** in Finder to restart it.
 
+**Check status:** double-click **`status.command`** — shows running state, uptime, last message, errors, and recent logs.
+
 Once running, send messages from any phone that can iMessage your Mac:
 
 | Message | What happens |
@@ -83,13 +95,19 @@ For example, if you have a campaign named `Beauty`:
 
 Campaign names are case-insensitive. The bot restarts automatically on login.
 
-Check logs: `tail -f /tmp/tiktok-lookup.log`
-
 ---
 
 ## Campaign Setup
 
 Campaigns define the target audience, search thresholds, and keyword queue. Each campaign lives in its own folder under `context/campaigns/<CampaignName>/` and requires two files.
+
+Copy the example template to get started:
+
+```bash
+cp -r context/campaigns/_example context/campaigns/MyCampaign
+```
+
+Then edit the two files:
 
 ### `campaign.md`
 
@@ -139,25 +157,31 @@ Open `data/dashboard.html` in any browser for a visual view with campaign/keywor
 
 ```
 ├── context/
-│   └── campaigns/          ← one folder per campaign
-├── data/                   ← xlsx output + dashboard (gitignored)
-├── setup.sh                ← one-time setup script
+│   └── campaigns/
+│       └── _example/          ← copy this to create a new campaign
+├── data/                      ← xlsx output + dashboard (gitignored)
+├── setup.command              ← double-click to install
+├── start.command              ← double-click to start the bot
+├── status.command             ← double-click to check bot status
+├── reset.command              ← double-click to uninstall everything
 └── .claude/
-    ├── .env                ← API keys (gitignored)
-    ├── .env.example        ← template
+    ├── .env                   ← API keys (gitignored)
+    ├── .env.example           ← template
     └── skills/
-        ├── scout-api/      ← scouting scripts
-        └── tiktok-lookup/  ← iMessage bot (bot.py)
+        ├── scout-api/         ← scouting scripts
+        └── tiktok-lookup/     ← iMessage bot (bot.py)
 ```
 
 ---
 
 ## Troubleshooting
 
-| Error | Fix |
+| Problem | Fix |
 |---|---|
-| Bot not responding to messages | Double-click `start.command` to restart; check `/tmp/tiktok-lookup.log` |
+| Bot not responding to messages | Double-click `status.command` to diagnose; try `start.command` to restart |
 | `TIKHUB_API_KEY not set` | Check `.claude/.env` |
+| `Cannot read Messages database` | Grant Full Disk Access to Terminal, then quit and reopen Terminal |
 | `uv: command not found` | Run `setup.command` again |
 | Bot doesn't start on login | Run `setup.command` again to re-register the Login Item |
 | Messages.app not signed in | Sign into iMessage in Messages.app settings |
+| Want a clean re-install | Double-click `reset.command`, then `setup.command` |
