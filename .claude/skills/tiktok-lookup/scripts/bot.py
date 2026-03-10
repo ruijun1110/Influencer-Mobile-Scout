@@ -62,7 +62,9 @@ end tell'''
 # --- Campaign helpers ---
 def resolve_campaign(raw: str) -> str | None:
     try:
-        dirs = [d for d in CAMPAIGNS_DIR.iterdir() if d.is_dir()]
+        if not CAMPAIGNS_DIR.exists():
+            return None
+        dirs = [d for d in CAMPAIGNS_DIR.iterdir() if d.is_dir() and not d.name.startswith('_')]
         match = next((d.name for d in dirs if d.name.lower() == raw.lower()), None)
         return match
     except Exception:
@@ -71,7 +73,10 @@ def resolve_campaign(raw: str) -> str | None:
 
 def list_campaigns() -> list[str]:
     try:
-        return [d.name for d in CAMPAIGNS_DIR.iterdir() if d.is_dir()]
+        if not CAMPAIGNS_DIR.exists():
+            return []
+        return [d.name for d in CAMPAIGNS_DIR.iterdir()
+                if d.is_dir() and not d.name.startswith('_')]
     except Exception:
         return []
 
@@ -168,6 +173,7 @@ def handle_message(sender: str, text: str):
         handle = resolve_short_url(short_id)
         if not handle:
             print(f'[bot] could not resolve short URL t/{short_id}', flush=True)
+            send_imessage(sender, f"Sorry, couldn't resolve that TikTok link. Try sending the full profile URL instead.")
             return
 
     print(f'[bot] TikTok URL from {sender}: @{handle}', flush=True)

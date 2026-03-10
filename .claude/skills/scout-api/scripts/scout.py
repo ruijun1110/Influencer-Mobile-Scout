@@ -66,8 +66,16 @@ async def main(campaign_name: str, keyword: str | None = None):
 
     # Verify campaign files exist
     campaign_dir = excel.PROJECT_ROOT / 'context' / 'campaigns' / campaign_name
+    if not campaign_dir.exists():
+        print(f"ERROR: campaign folder not found: {campaign_dir}", file=sys.stderr)
+        print(f"  Create it with campaign.md and keywords.md — see context/campaigns/_example/", file=sys.stderr)
+        sys.exit(1)
     if not (campaign_dir / 'campaign.md').exists():
-        print(f"ERROR: campaign file not found: {campaign_dir / 'campaign.md'}", file=sys.stderr)
+        print(f"ERROR: missing campaign.md in {campaign_dir}", file=sys.stderr)
+        sys.exit(1)
+    if not (campaign_dir / 'keywords.md').exists():
+        print(f"ERROR: missing keywords.md in {campaign_dir}", file=sys.stderr)
+        print(f"  Create it with at least one pending keyword — see context/campaigns/_example/keywords.md", file=sys.stderr)
         sys.exit(1)
 
     # If keyword given, append to keywords.md (deduped)
