@@ -11,9 +11,11 @@ Sends replies via osascript — no Node.js required.
 Run: uv run bot.py
 """
 
+import fcntl
 import json
 import os
 import re
+import signal
 import sqlite3
 import subprocess
 import sys
@@ -338,8 +340,34 @@ def get_latest_rowid() -> int:
         return 0
 
 
+LOCK_FILE = Path('/tmp/tiktok-scout-bot.lock')
+
+
+def acquire_lock():
+    """Acquire an exclusive file lock. Exits if another instance is running."""
+    try:
+        lock_fd = open(LOCK_FILE, 'w')
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        # Write our PID for status.command to read
+        lock_fd.truncate()
+        lock_fd.write(str(os.getpid()))
+        lock_fd.flush()
+        os.fsync(lock_fd.fileno())
+        # Keep fd open — lock is released when process exits (any reason)
+        return lock_fd
+    except OSError:
+        # Another instance holds the lock
+        try:
+            existing_pid = LOCK_FILE.read_text().strip()
+        except Exception:
+            existing_pid = '?'
+        log(f'Another instance is already running (PID {existing_pid}). Exiting.')
+        sys.exit(0)
+
+
 # --- Main ---
 def main():
+    lock_fd = acquire_lock()  # noqa: F841 — must keep reference alive
     log('Starting iMessage watcher...')
     status_update(state='starting', started_at=datetime.now().isoformat())
 
