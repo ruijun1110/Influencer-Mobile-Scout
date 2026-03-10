@@ -43,9 +43,9 @@ cd Influencer-Mobile-Scout
 
 脚本将自动完成：
 - 安装 `uv`（如未安装）
-- 根据本机路径生成 launchd plist 文件
 - 从模板创建 `.claude/.env` 并打开供编辑
-- 自动启动 iMessage 机器人
+- 将机器人注册为登录项，每次登录自动启动
+- 立即启动机器人
 
 ### 3. 填写 API Key
 
@@ -56,15 +56,7 @@ TIKHUB_API_KEY=你的key
 NOTIFY_PHONE=+86XXXXXXXXXXX   # 可选，用于接收搜索进度通知
 ```
 
-保存并关闭文件。
-
-### 4. 授予终端"完全磁盘访问"权限
-
-iMessage 机器人需要读取 `~/Library/Messages/chat.db`，必须手动开启权限：
-
-**系统设置 → 隐私与安全性 → 完全磁盘访问 → 开启你使用的终端应用**
-
-此步骤无法通过脚本自动完成，只需操作一次。
+保存并关闭文件。完成。
 
 ---
 
@@ -72,9 +64,9 @@ iMessage 机器人需要读取 `~/Library/Messages/chat.db`，必须手动开启
 
 **首次使用：** 机器人会在 `setup.command` 结束时自动启动。
 
-**手动停止后或重新安装后：** 在 Finder 中双击 **`start.command`**。
+**重启后：** 通过登录项自动启动，无需任何操作。
 
-机器人在每次登录时自动启动，正常情况下安装后无需再做任何操作。
+**机器人意外停止时：** 在 Finder 中双击 **`start.command`** 重新启动。
 
 启动后，从任意可以 iMessage 你 Mac 的手机发送以下内容：
 
@@ -164,8 +156,8 @@ max_candidates_per_keyword: 5  # 每个关键词最多审核的达人数量
 
 | 错误 | 解决方法 |
 |---|---|
-| 机器人无法读取消息 | 授予终端完全磁盘访问权限（步骤 4） |
+| 机器人不回复消息 | 双击 `start.command` 重启；查看 `/tmp/tiktok-lookup.log` |
 | `TIKHUB_API_KEY not set` | 检查 `.claude/.env` 文件 |
-| `uv: command not found` | 重新运行 `bash setup.sh` |
-| 机器人不回复消息 | 确认 Messages.app 已登录；查看 `/tmp/tiktok-lookup.err` |
-| 找不到 plist 文件 | 重新运行 `bash setup.sh` 重新生成 |
+| `uv: command not found` | 重新运行 `setup.command` |
+| 登录后机器人未自动启动 | 重新运行 `setup.command` 重新注册登录项 |
+| Messages.app 未登录 | 在 Messages.app 设置中登录 iMessage |

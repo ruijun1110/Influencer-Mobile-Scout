@@ -43,9 +43,9 @@ Double-click **`setup.command`** in Finder.
 
 This will:
 - Install `uv` if not already present
-- Generate the launchd plist with your local paths
 - Create `.claude/.env` from the template and open it for editing
-- Start the iMessage bot automatically
+- Register the bot as a Login Item so it starts automatically on every login
+- Start the bot immediately
 
 ### 3. Fill in your API key
 
@@ -56,15 +56,7 @@ TIKHUB_API_KEY=your_key_here
 NOTIFY_PHONE=+1XXXXXXXXXX   # optional — iMessage progress notifications
 ```
 
-Save and close.
-
-### 4. Grant Full Disk Access to Terminal
-
-The iMessage bot reads `~/Library/Messages/chat.db`, which requires Full Disk Access.
-
-**System Settings → Privacy & Security → Full Disk Access → enable your terminal app**
-
-This is a one-time manual step.
+Save and close. That's it.
 
 ---
 
@@ -72,9 +64,9 @@ This is a one-time manual step.
 
 **First time:** the bot starts automatically at the end of `setup.command`.
 
-**After a manual stop or reinstall:** double-click **`start.command`** in Finder.
+**After a reboot:** starts automatically via Login Item — nothing to do.
 
-The bot restarts automatically on every login — you normally won't need to do anything after setup.
+**If the bot stops unexpectedly:** double-click **`start.command`** in Finder to restart it.
 
 Once running, send messages from any phone that can iMessage your Mac:
 
@@ -164,8 +156,8 @@ Open `data/dashboard.html` in any browser for a visual view with campaign/keywor
 
 | Error | Fix |
 |---|---|
-| Bot not reading messages | Grant Full Disk Access to Terminal (step 4) |
+| Bot not responding to messages | Double-click `start.command` to restart; check `/tmp/tiktok-lookup.log` |
 | `TIKHUB_API_KEY not set` | Check `.claude/.env` |
-| `uv: command not found` | Run `bash setup.sh` again |
-| Bot not responding | Ensure Messages.app is signed in; check `/tmp/tiktok-lookup.err` |
-| Plist not found | Run `bash setup.sh` to regenerate it |
+| `uv: command not found` | Run `setup.command` again |
+| Bot doesn't start on login | Run `setup.command` again to re-register the Login Item |
+| Messages.app not signed in | Sign into iMessage in Messages.app settings |

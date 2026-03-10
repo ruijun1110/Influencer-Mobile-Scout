@@ -5,9 +5,7 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$PROJECT_DIR/.claude/.env"
 ENV_EXAMPLE="$PROJECT_DIR/.claude/.env.example"
-PLIST_TEMPLATE="$PROJECT_DIR/.claude/skills/tiktok-lookup/launchd/com.tiktok-lookup-py.plist.template"
-PLIST_OUT="$PROJECT_DIR/.claude/skills/tiktok-lookup/launchd/com.tiktok-lookup.plist"
-BOT_PY="$PROJECT_DIR/.claude/skills/tiktok-lookup/scripts/bot.py"
+START_CMD="$PROJECT_DIR/start.command"
 
 # Colors
 BOLD='\033[1m'
@@ -22,7 +20,6 @@ divider() { echo -e "${DIM}─────────────────�
 step()    { echo -e "\n${CYAN}${BOLD}$1${RESET}  ${DIM}$2${RESET}"; }
 ok()      { echo -e "  ${GREEN}✓${RESET}  $1"; }
 info()    { echo -e "  ${DIM}→  $1${RESET}"; }
-warn()    { echo -e "  ${YELLOW}!${RESET}  $1"; }
 err()     { echo -e "  ${RED}✗  $1${RESET}"; }
 
 clear
@@ -38,7 +35,7 @@ if command -v uv &>/dev/null; then
 else
   info "Installing uv..."
   curl -LsSf https://astral.sh/uv/install.sh | sh
-  export PATH="$HOME/.cargo/bin:$PATH"
+  export PATH="$HOME/.local/bin:$PATH"
   if ! command -v uv &>/dev/null; then
     err "uv install failed. Visit: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
@@ -46,19 +43,8 @@ else
   ok "uv installed"
 fi
 
-UV_PATH="$(command -v uv)"
-
-# ── 2. Plist ──
-step "②" "Configuring background service"
-sed \
-  -e "s|{{UV_PATH}}|$UV_PATH|g" \
-  -e "s|{{BOT_PY}}|$BOT_PY|g" \
-  -e "s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
-  "$PLIST_TEMPLATE" > "$PLIST_OUT"
-ok "Service configured for this machine"
-
-# ── 3. .env ──
-step "③" "API key setup"
+# ── 2. .env ──
+step "②" "API key setup"
 if [ ! -f "$ENV_FILE" ]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
   ok "Created .claude/.env"
@@ -71,23 +57,45 @@ else
   ok ".claude/.env already exists"
 fi
 
-# ── 4. Full Disk Access ──
-step "④" "Manual step required"
-echo ""
-echo -e "  The iMessage bot needs access to your Messages database."
-echo -e "  ${BOLD}Please grant Full Disk Access to Terminal:${RESET}"
-echo ""
-echo -e "  ${CYAN}System Settings → Privacy & Security → Full Disk Access → enable Terminal${RESET}"
-echo ""
-echo -e "  ${DIM}(This is a one-time macOS security step — cannot be automated)${RESET}"
+# ── 3. Login Item ──
+step "③" "Registering auto-start on login"
+chmod +x "$START_CMD"
+osascript << APPLESCRIPT 2>/dev/null && ok "Login Item registered — bot will start automatically on login" || true
+tell application "System Events"
+  set existingItems to every login item whose path is "$START_CMD"
+  if (count of existingItems) is 0 then
+    make new login item at end of login items with properties {path:"$START_CMD", hidden:true, name:"TikTok Scout Bot"}
+  end if
+end tell
+APPLESCRIPT
+
+# ── 4. Start now ──
+step "④" "Starting bot"
+# Stop any existing launchd instance
+launchctl unload "$HOME/Library/LaunchAgents/com.tiktok-lookup.plist" 2>/dev/null || true
+
+# Kill any existing bot processes
+pkill -f "bot.py" 2>/dev/null || true
+pkill -f "bot.mjs" 2>/dev/null || true
+sleep 1
+
+# Start bot in background (inherits Terminal's FDA)
+nohup bash "$START_CMD" > /tmp/tiktok-lookup.log 2>&1 &
+sleep 3
+
+if tail -3 /tmp/tiktok-lookup.log | grep -q "Watching from rowid"; then
+  ok "Bot is running"
+else
+  echo -e "  ${YELLOW}!${RESET}  Check logs: tail -f /tmp/tiktok-lookup.log"
+fi
 
 echo ""
 divider
 echo ""
 echo -e "  ${GREEN}${BOLD}Setup complete.${RESET}"
 echo ""
-echo -e "  Once Full Disk Access is granted, the iMessage bot will be"
-echo -e "  ready to receive TikTok URLs and scout commands."
+echo -e "  Send a TikTok URL to your Mac via iMessage to test it."
+echo -e "  ${DIM}The bot starts automatically on every login.${RESET}"
 echo ""
 divider
 echo ""
