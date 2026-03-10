@@ -26,7 +26,13 @@ echo ""
 
 # 1. Stop bot
 info "Stopping bot..."
-pkill -f "bot.py" 2>/dev/null || true
+# Kill by lock file PID (most reliable)
+if [ -f /tmp/tiktok-scout-bot.lock ]; then
+  BOT_PID=$(cat /tmp/tiktok-scout-bot.lock 2>/dev/null)
+  [ -n "$BOT_PID" ] && kill "$BOT_PID" 2>/dev/null
+fi
+# Also kill by process name as fallback
+pkill -f "tiktok-lookup/scripts/bot.py" 2>/dev/null || true
 pkill -f "start.command" 2>/dev/null || true
 sleep 1
 ok "Bot stopped"
