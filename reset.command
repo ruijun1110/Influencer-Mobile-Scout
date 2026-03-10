@@ -26,15 +26,19 @@ echo ""
 
 # 1. Stop bot
 info "Stopping bot..."
-# Kill by lock file PID (most reliable)
+# Kill by lock file PID (most reliable — catches uv-spawned python)
 if [ -f /tmp/tiktok-scout-bot.lock ]; then
   BOT_PID=$(cat /tmp/tiktok-scout-bot.lock 2>/dev/null)
   [ -n "$BOT_PID" ] && kill "$BOT_PID" 2>/dev/null
 fi
-# Also kill by process name as fallback
+# Kill all related processes (graceful then force)
 pkill -f "tiktok-lookup/scripts/bot.py" 2>/dev/null || true
 pkill -f "start.command" 2>/dev/null || true
 sleep 1
+# Force kill any survivors (detached nohup processes can ignore SIGTERM)
+pkill -9 -f "tiktok-lookup/scripts/bot.py" 2>/dev/null || true
+pkill -9 -f "start.command" 2>/dev/null || true
+rm -f /tmp/tiktok-scout-bot.lock
 ok "Bot stopped"
 
 # 2. Remove Login Item

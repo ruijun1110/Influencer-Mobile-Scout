@@ -9,6 +9,12 @@ export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PA
 # Restart loop — if bot crashes, restart after 10 seconds
 while true; do
   uv run .claude/skills/tiktok-lookup/scripts/bot.py 2>&1
-  echo "[$(date +%H:%M:%S)] Bot exited, restarting in 10s..."
+  EXIT_CODE=$?
+  if [ "$EXIT_CODE" -eq 10 ]; then
+    # Exit 10 = another instance already running. Stop retrying.
+    echo "[$(date +%H:%M:%S)] Another instance is running. This launcher will exit."
+    exit 0
+  fi
+  echo "[$(date +%H:%M:%S)] Bot exited (code $EXIT_CODE), restarting in 10s..."
   sleep 10
 done

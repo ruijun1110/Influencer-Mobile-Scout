@@ -362,7 +362,7 @@ def acquire_lock():
         except Exception:
             existing_pid = '?'
         log(f'Another instance is already running (PID {existing_pid}). Exiting.')
-        sys.exit(0)
+        sys.exit(10)  # non-zero so start.command's restart loop backs off
 
 
 # --- Main ---

@@ -130,8 +130,12 @@ if [ -f /tmp/tiktok-scout-bot.lock ]; then
   BOT_PID=$(cat /tmp/tiktok-scout-bot.lock 2>/dev/null)
   [ -n "$BOT_PID" ] && kill "$BOT_PID" 2>/dev/null
 fi
+# Kill all related processes (graceful then force)
 pkill -f "tiktok-lookup/scripts/bot.py" 2>/dev/null || true
 pkill -f "start.command" 2>/dev/null || true
+sleep 1
+pkill -9 -f "tiktok-lookup/scripts/bot.py" 2>/dev/null || true
+pkill -9 -f "start.command" 2>/dev/null || true
 rm -f /tmp/tiktok-scout-bot.lock
 sleep 1
 
