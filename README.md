@@ -21,7 +21,7 @@ A toolkit for discovering and auditing TikTok influencers — running entirely o
 |---|---|
 | **macOS** | iMessage features require macOS |
 | **[uv](https://docs.astral.sh/uv/)** | Python runner — installed automatically by `setup.sh` |
-| **[TikHub API key](https://tikhub.io)** | Free tier available — get one at tikhub.io |
+| **[TikHub API key](https://tikhub.io)** | Get one at tikhub.io |
 | **Messages.app** | Must be signed into iMessage on the Mac |
 
 No Node.js, no npm, no Python install required.
@@ -33,8 +33,8 @@ No Node.js, no npm, no Python install required.
 ### 1. Clone the repo
 
 ```bash
-git clone <repo-url>
-cd influencer-search-agent
+git clone https://github.com/ruijun1110/Influencer-Mobile-Scout.git
+cd Influencer-Mobile-Scout
 ```
 
 ### 2. Run setup
@@ -77,18 +77,20 @@ Start the background daemon:
 launchctl load ~/Library/LaunchAgents/com.tiktok-lookup.plist
 ```
 
-Or use the provided skill commands (see skill docs).
-
-Once running, from any phone that can iMessage your Mac:
+Once running, send messages from any phone that can iMessage your Mac:
 
 | Message | What happens |
 |---|---|
-| `https://www.tiktok.com/@someuser` | Replies with up to 10 similar creators |
-| `scout #Beauty glass skin` | Triggers a scout for keyword "glass skin" in the Beauty campaign |
-| `scout #Beauty` | Runs all pending keywords in the Beauty campaign |
-| `scout #unknown` | Replies with available campaign list |
+| A TikTok profile or video URL | Replies with up to 10 similar creators |
+| `scout #<Campaign>` | Runs all pending keywords for that campaign |
+| `scout #<Campaign> <keyword>` | Triggers a scout for a specific keyword |
+| `scout #<unknown>` | Replies with a list of available campaigns |
 
-The bot restarts automatically on login.
+For example, if you have a campaign named `Beauty`:
+- `scout #Beauty` — runs all pending keywords
+- `scout #Beauty glass skin` — searches "glass skin" specifically
+
+Campaign names are case-insensitive. The bot restarts automatically on login.
 
 Check logs: `tail -f /tmp/tiktok-lookup.log`
 
@@ -96,29 +98,37 @@ Check logs: `tail -f /tmp/tiktok-lookup.log`
 
 ## Campaign Setup
 
-Campaigns live in `context/campaigns/<name>/`. Each needs two files:
+Campaigns define the target audience, search thresholds, and keyword queue. Each campaign lives in its own folder under `context/campaigns/<CampaignName>/` and requires two files.
 
-**`campaign.md`** — defines the target audience and thresholds:
+### `campaign.md`
+
 ```yaml
 ---
 persona: |
-  Describe the target audience and content type.
-view_threshold: 10000
-min_video_views: 50000
-recent_video_count: 10
-max_candidates_per_keyword: 5
+  Describe the target audience, content type, and what makes a creator a good fit.
+  Be as specific as needed — this is used by AI to generate relevant keywords.
+view_threshold: 10000        # minimum play count to consider a video in search results
+min_video_views: 50000       # minimum views required across recent videos to qualify
+recent_video_count: 10       # how many recent videos to sample when auditing a creator
+max_candidates_per_keyword: 5  # max creators to audit per keyword search
 ---
 ```
 
-**`keywords.md`** — keyword queue:
+### `keywords.md`
+
+A markdown table tracking which keywords have been searched:
+
 ```markdown
 | keyword | status | source | date |
 |---|---|---|---|
-| skincare routine | pending | manual | 2026-03-10 |
-| glass skin | pending | manual | 2026-03-10 |
+| your keyword here | pending | manual | 2026-03-10 |
 ```
 
-Status flow: `pending` → `searched`
+- **status**: `pending` (not yet searched) or `searched` (done)
+- **source**: `manual` (you added it) or `ai` (auto-generated)
+- **date**: when the keyword was added
+
+Add keywords manually, or let the AI generate them based on your campaign persona. Status updates to `searched` automatically after each run.
 
 ---
 
@@ -127,8 +137,8 @@ Status flow: `pending` → `searched`
 All results write to `data/influencers.xlsx`:
 
 - **Influencers** sheet — qualified creators with view stats
-- **Candidates** sheet — all audited profiles
-- **Search Log** sheet — keyword search history
+- **Candidates** sheet — all audited profiles and their status
+- **Search Log** sheet — keyword search history per campaign
 
 Open `data/dashboard.html` in any browser for a visual view with campaign/keyword filters.
 

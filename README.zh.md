@@ -33,8 +33,8 @@
 ### 1. 克隆仓库
 
 ```bash
-git clone <repo-url>
-cd influencer-search-agent
+git clone https://github.com/ruijun1110/Influencer-Mobile-Scout.git
+cd Influencer-Mobile-Scout
 ```
 
 ### 2. 运行安装脚本
@@ -77,14 +77,18 @@ iMessage 机器人需要读取 `~/Library/Messages/chat.db`，必须手动开启
 launchctl load ~/Library/LaunchAgents/com.tiktok-lookup.plist
 ```
 
-启动后，从任意可以 iMessage 你的 Mac 的手机发送：
+启动后，从任意可以 iMessage 你 Mac 的手机发送以下内容：
 
 | 消息内容 | 效果 |
 |---|---|
-| `https://www.tiktok.com/@某达人` | 回复最多 10 个相似达人 |
-| `scout #Beauty glass skin` | 以"glass skin"为关键词搜索 Beauty 活动 |
-| `scout #Beauty` | 搜索 Beauty 活动中所有待处理关键词 |
-| `scout #未知活动` | 回复当前可用活动列表 |
+| TikTok 达人主页或视频链接 | 回复最多 10 个相似达人 |
+| `scout #<活动名>` | 搜索该活动中所有待处理关键词 |
+| `scout #<活动名> <关键词>` | 针对指定关键词触发搜索 |
+| `scout #<未知活动名>` | 回复当前可用活动列表 |
+
+活动名称不区分大小写。假设你有一个名为 `Beauty` 的活动：
+- `scout #Beauty` — 搜索所有待处理关键词
+- `scout #Beauty glass skin` — 仅搜索"glass skin"这个关键词
 
 机器人在登录时自动启动。
 
@@ -94,29 +98,37 @@ launchctl load ~/Library/LaunchAgents/com.tiktok-lookup.plist
 
 ## 活动配置
 
-活动文件夹位于 `context/campaigns/<活动名>/`，每个活动需要两个文件：
+活动定义了目标受众、筛选阈值和关键词队列。每个活动位于 `context/campaigns/<活动名>/` 目录下，需要两个文件。
 
-**`campaign.md`** — 定义目标受众和筛选阈值：
+### `campaign.md`
+
 ```yaml
 ---
 persona: |
-  描述目标受众和内容类型。
-view_threshold: 10000
-min_video_views: 50000
-recent_video_count: 10
-max_candidates_per_keyword: 5
+  描述目标受众、内容类型，以及什么样的达人符合要求。
+  越具体越好 — AI 会根据此描述生成相关关键词。
+view_threshold: 10000        # 搜索结果中视频的最低播放量门槛
+min_video_views: 50000       # 达人近期视频需达到的最低播放量（用于资质审核）
+recent_video_count: 10       # 审核达人时采样的近期视频数量
+max_candidates_per_keyword: 5  # 每个关键词最多审核的达人数量
 ---
 ```
 
-**`keywords.md`** — 关键词队列：
+### `keywords.md`
+
+用于追踪关键词搜索状态的 Markdown 表格：
+
 ```markdown
 | keyword | status | source | date |
 |---|---|---|---|
-| skincare routine | pending | manual | 2026-03-10 |
-| glass skin | pending | manual | 2026-03-10 |
+| 你的关键词 | pending | manual | 2026-03-10 |
 ```
 
-状态流转：`pending` → `searched`
+- **status**：`pending`（未搜索）或 `searched`（已完成）
+- **source**：`manual`（手动添加）或 `ai`（自动生成）
+- **date**：关键词添加日期
+
+关键词可以手动添加，也可以由 AI 根据活动 persona 自动生成。每次搜索完成后状态自动更新为 `searched`。
 
 ---
 
@@ -125,8 +137,8 @@ max_candidates_per_keyword: 5
 所有结果写入 `data/influencers.xlsx`：
 
 - **Influencers** 表 — 合格达人及播放量数据
-- **Candidates** 表 — 所有审核过的达人
-- **Search Log** 表 — 关键词搜索历史
+- **Candidates** 表 — 所有审核过的达人及其状态
+- **Search Log** 表 — 各活动关键词搜索历史
 
 在浏览器中打开 `data/dashboard.html` 查看可视化看板，支持按活动和关键词筛选。
 
