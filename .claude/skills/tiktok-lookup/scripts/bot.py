@@ -11,24 +11,29 @@ Sends replies via osascript — no Node.js required.
 Run: uv run bot.py
 """
 
+import json
 import os
 import re
 import sqlite3
 import subprocess
 import sys
 import time
+from datetime import datetime
 from pathlib import Path
 
 # --- Path setup ---
 SCRIPT_DIR = Path(__file__).resolve().parent
 SKILL_DIR = SCRIPT_DIR.parent
 ENV_PATH = SKILL_DIR.parents[1] / '.env'
-DATA_DIR = SKILL_DIR.parents[2] / 'data'
+PROJECT_DIR = SKILL_DIR.parents[2]
+DATA_DIR = PROJECT_DIR / 'data'
 LOOKUP_PY = SCRIPT_DIR / 'lookup.py'
 SCOUT_PY = SKILL_DIR.parent / 'scout-api' / 'scripts' / 'scout.py'
 KEYWORDS_HELPER_PY = SKILL_DIR.parent / 'scout-api' / 'scripts' / 'keywords_helper.py'
-CAMPAIGNS_DIR = SKILL_DIR.parents[2] / 'context' / 'campaigns'
+CAMPAIGNS_DIR = PROJECT_DIR / 'context' / 'campaigns'
 CHAT_DB = Path.home() / 'Library' / 'Messages' / 'chat.db'
+STATUS_FILE = DATA_DIR / '.bot-status.json'
+LOG_FILE = Path('/tmp/tiktok-lookup.log')
 
 # --- Load .env ---
 if ENV_PATH.exists():
@@ -45,6 +50,77 @@ SCOUT_RE = re.compile(r'^scout\s+#(\w+)(?:\s+(.+))?$', re.IGNORECASE)
 POLL_INTERVAL = 3  # seconds
 
 
+# --- Logging ---
+def log(msg: str):
+    ts = datetime.now().strftime('%H:%M:%S')
+    print(f'[{ts}] {msg}', flush=True)
+
+
+# --- Status file ---
+_status = {}
+
+
+def status_update(**kwargs):
+    _status.update(kwargs)
+    _status['pid'] = os.getpid()
+    _status['updated_at'] = datetime.now().isoformat()
+    try:
+        STATUS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        STATUS_FILE.write_text(json.dumps(_status, indent=2))
+    except Exception:
+        pass
+
+
+# --- Startup self-checks ---
+def preflight() -> list[str]:
+    """Run startup checks. Returns list of fatal errors (empty = all good)."""
+    errors = []
+
+    # 1. .env exists and has API key
+    api_key = os.environ.get('TIKHUB_API_KEY', '').strip()
+    if not api_key:
+        errors.append(f'TIKHUB_API_KEY not set. Edit: {ENV_PATH}')
+    elif len(api_key) < 10:
+        errors.append(f'TIKHUB_API_KEY looks invalid (too short). Edit: {ENV_PATH}')
+
+    # 2. Messages.db readable (Full Disk Access check)
+    if not CHAT_DB.exists():
+        errors.append(f'Messages database not found: {CHAT_DB}')
+    else:
+        try:
+            con = sqlite3.connect(f'file:{CHAT_DB}?mode=ro', uri=True, timeout=5)
+            con.execute('SELECT 1 FROM message LIMIT 1')
+            con.close()
+        except sqlite3.OperationalError as e:
+            if 'unable to open' in str(e) or 'authorization denied' in str(e):
+                errors.append(
+                    'Cannot read Messages database — Full Disk Access required.\n'
+                    '  → System Settings > Privacy & Security > Full Disk Access\n'
+                    '  → Enable access for Terminal (or iTerm/your terminal app).'
+                )
+            else:
+                errors.append(f'Messages database error: {e}')
+
+    # 3. osascript works
+    try:
+        r = subprocess.run(
+            ['osascript', '-e', 'return "ok"'],
+            capture_output=True, text=True, timeout=5,
+        )
+        if r.returncode != 0:
+            errors.append(f'osascript failed: {r.stderr.strip()}')
+    except FileNotFoundError:
+        errors.append('osascript not found — this tool requires macOS.')
+
+    # 4. uv available (for spawning scout/lookup)
+    try:
+        subprocess.run(['uv', '--version'], capture_output=True, timeout=5)
+    except FileNotFoundError:
+        errors.append('uv not found on PATH. Run setup.command again.')
+
+    return errors
+
+
 # --- iMessage send via osascript ---
 def send_imessage(recipient: str, text: str):
     # Escape backslashes and double quotes for AppleScript string
@@ -54,9 +130,11 @@ def send_imessage(recipient: str, text: str):
   send "{safe}" to buddy "{recipient}" of s
 end tell'''
     try:
-        subprocess.run(['osascript', '-e', script], timeout=15, capture_output=True)
+        r = subprocess.run(['osascript', '-e', script], timeout=15, capture_output=True, text=True)
+        if r.returncode != 0:
+            log(f'send failed to {recipient}: {r.stderr.strip()}')
     except Exception as e:
-        print(f'[bot] send error to {recipient}: {e}', flush=True)
+        log(f'send error to {recipient}: {e}')
 
 
 # --- Campaign helpers ---
@@ -100,10 +178,10 @@ def spawn_scout(campaign: str, keyword: str | None, sender: str):
     try:
         proc = subprocess.Popen(args, env=os.environ.copy(),
                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        print(f'[bot] spawned scout PID {proc.pid} campaign={campaign}' +
-              (f' keyword="{keyword}"' if keyword else ''), flush=True)
+        log(f'spawned scout PID {proc.pid} campaign={campaign}' +
+              (f' keyword="{keyword}"' if keyword else ''))
     except Exception as e:
-        print(f'[bot] scout spawn error: {e}', flush=True)
+        log(f'scout spawn error: {e}')
         send_imessage(sender, f'Failed to start scout for #{campaign}: {e}')
 
 
@@ -133,7 +211,7 @@ def resolve_short_url(short_id: str) -> str | None:
         ).json()
         return detail.get('data', {}).get('itemInfo', {}).get('itemStruct', {}).get('author', {}).get('uniqueId')
     except Exception as e:
-        print(f'[bot] short URL resolve error: {e}', flush=True)
+        log(f'short URL resolve error: {e}')
         return None
 
 
@@ -172,11 +250,12 @@ def handle_message(sender: str, text: str):
     if not handle and short_id:
         handle = resolve_short_url(short_id)
         if not handle:
-            print(f'[bot] could not resolve short URL t/{short_id}', flush=True)
+            log(f'could not resolve short URL t/{short_id}')
             send_imessage(sender, f"Sorry, couldn't resolve that TikTok link. Try sending the full profile URL instead.")
             return
 
-    print(f'[bot] TikTok URL from {sender}: @{handle}', flush=True)
+    log(f'TikTok URL from {sender}: @{handle}')
+    status_update(last_message=f'@{handle} from {sender}', last_message_at=datetime.now().isoformat())
     send_imessage(sender, f'Looking up similar creators for @{handle}...')
 
     try:
@@ -194,9 +273,10 @@ def handle_message(sender: str, text: str):
             send_imessage(sender, header + urls)
         else:
             send_imessage(sender, output or 'No results.')
-        print(f'[bot] replied to {sender} for @{handle}', flush=True)
+        log(f'replied to {sender} for @{handle}')
     except Exception as e:
-        print(f'[bot] lookup error for @{handle}: {e}', flush=True)
+        log(f'lookup error for @{handle}: {e}')
+        status_update(last_error=str(e), last_error_at=datetime.now().isoformat())
         send_imessage(sender, f"Sorry, couldn't find similar creators for @{handle}. Try again later.")
 
 
@@ -216,11 +296,21 @@ def poll(last_rowid: int) -> int:
         ''', (last_rowid,))
         rows = cur.fetchall()
         con.close()
+        if rows:
+            log(f'{len(rows)} new message(s)')
         for rowid, text, sender in rows:
             last_rowid = max(last_rowid, rowid)
             handle_message(sender, text)
+        status_update(last_poll=datetime.now().isoformat(), state='running')
+    except sqlite3.OperationalError as e:
+        if 'database is locked' in str(e):
+            log('chat.db locked, will retry next cycle')
+        else:
+            log(f'db error: {e}')
+            status_update(last_error=str(e), last_error_at=datetime.now().isoformat())
     except Exception as e:
-        print(f'[bot] db error: {e}', flush=True)
+        log(f'db error: {e}')
+        status_update(last_error=str(e), last_error_at=datetime.now().isoformat())
     return last_rowid
 
 
@@ -236,9 +326,23 @@ def get_latest_rowid() -> int:
 
 # --- Main ---
 def main():
-    print('[bot] Starting iMessage watcher (osascript edition)...', flush=True)
+    log('Starting iMessage watcher...')
+    status_update(state='starting', started_at=datetime.now().isoformat())
+
+    # Preflight checks
+    errors = preflight()
+    if errors:
+        log('PREFLIGHT FAILED:')
+        for e in errors:
+            for line in e.split('\n'):
+                log(f'  {line}')
+        status_update(state='error', errors=errors)
+        sys.exit(1)
+
+    log('Preflight OK')
     last_rowid = get_latest_rowid()
-    print(f'[bot] Watching from rowid {last_rowid}', flush=True)
+    log(f'Watching from rowid {last_rowid}')
+    status_update(state='running', last_poll=datetime.now().isoformat())
 
     while True:
         last_rowid = poll(last_rowid)
@@ -249,5 +353,6 @@ if __name__ == '__main__':
     try:
         main()
     except KeyboardInterrupt:
-        print('[bot] Stopped.', flush=True)
+        log('Stopped.')
+        status_update(state='stopped')
         sys.exit(0)

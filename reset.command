@@ -4,10 +4,12 @@ PROJECT_DIR="$(pwd)"
 
 BOLD='\033[1m'
 GREEN='\033[0;32m'
-CYAN='\033[0;36m'
 DIM='\033[2m'
 YELLOW='\033[0;33m'
 RESET='\033[0m'
+
+SERVICE_LABEL="com.tiktok-scout"
+PLIST="$HOME/Library/LaunchAgents/com.tiktok-scout.plist"
 
 divider() { echo -e "${DIM}──────────────────────────────────────────${RESET}"; }
 ok()      { echo -e "  ${GREEN}✓${RESET}  $1"; }
@@ -19,25 +21,31 @@ echo -e "${BOLD}  TikTok Influencer Scout — Reset${RESET}"
 divider
 echo ""
 echo -e "  This will stop the bot, remove your API key config, and"
-echo -e "  clear scouting results so you can run setup fresh."
+echo -e "  clean scouting results so you can run setup fresh."
 echo ""
 echo -e "  ${YELLOW}Press any key to continue, or Ctrl+C to cancel.${RESET}"
 read -n 1 -s
 echo ""
 
-# 1. Stop bot
+# 1. Stop and unload launchd service
 info "Stopping bot..."
+launchctl bootout "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null || true
+# Also clean up legacy processes
 pkill -f "bot.py" 2>/dev/null || true
 pkill -f "start.command" 2>/dev/null || true
-sleep 1
 ok "Bot stopped"
 
-# 2. Remove Login Item
-info "Removing Login Item..."
-osascript -e 'tell application "System Events" to delete every login item whose name is "TikTok Scout Bot"' 2>/dev/null || true
-ok "Login Item removed"
+# 2. Remove launchd plist
+if [ -f "$PLIST" ]; then
+  rm "$PLIST"
+  ok "LaunchAgent removed"
+fi
 
-# 3. Remove .env
+# 3. Remove legacy Login Item
+osascript -e 'tell application "System Events" to delete every login item whose name is "TikTok Scout Bot"' 2>/dev/null || true
+ok "Login Item removed (if any)"
+
+# 4. Remove .env
 if [ -f "$PROJECT_DIR/.claude/.env" ]; then
   rm "$PROJECT_DIR/.claude/.env"
   ok ".env removed"
@@ -45,10 +53,12 @@ else
   ok ".env not found (already clean)"
 fi
 
-# 4. Clear log and lock
+# 5. Clear logs and status
 rm -f /tmp/tiktok-lookup.log
+rm -f /tmp/tiktok-lookup.err
 rm -f /tmp/tiktok-scout-bot.lock
-ok "Log and lock cleared"
+rm -f "$PROJECT_DIR/data/.bot-status.json"
+ok "Logs and status cleared"
 
 echo ""
 divider

@@ -5,9 +5,18 @@
 data/influencers.xlsx
 data/similar_users.xlsx
 data/dashboard.html
+data/.bot-status.json
 logs/
 
-# Generated plist (created by setup.sh)
+# Context (internal docs + campaigns; only _example campaign is tracked)
+context/*.md
+context/campaigns/*
+!context/campaigns/_example/
+
+# Legacy Node bot
+.claude/skills/tiktok-lookup/scripts/bot.mjs
+
+# Generated plist (template is tracked, generated files are not)
 .claude/skills/tiktok-lookup/launchd/com.tiktok-lookup.plist
 
 # Python
@@ -16,7 +25,7 @@ __pycache__/
 *.pyo
 .uv/
 
-# Node (legacy — no longer needed)
+# Node (legacy)
 node_modules/
 send-imessage/
 
