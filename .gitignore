@@ -1,0 +1,24 @@
+# Secrets
+.claude/.env
+
+# Data & generated output
+data/influencers.xlsx
+data/similar_users.xlsx
+data/dashboard.html
+logs/
+
+# Generated plist (created by setup.sh)
+.claude/skills/tiktok-lookup/launchd/com.tiktok-lookup.plist
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.uv/
+
+# Node (legacy — no longer needed)
+node_modules/
+send-imessage/
+
+# macOS
+.DS_Store
