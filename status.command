@@ -10,10 +10,9 @@ RED='\033[0;31m'
 CYAN='\033[0;36m'
 RESET='\033[0m'
 
-SERVICE_LABEL="com.tiktok-scout"
+LOCK_FILE="/tmp/tiktok-scout-bot.lock"
 STATUS_FILE="data/.bot-status.json"
 LOG_FILE="/tmp/tiktok-lookup.log"
-ERR_FILE="/tmp/tiktok-lookup.err"
 
 divider() { echo -e "${DIM}──────────────────────────────────────────${RESET}"; }
 
@@ -23,26 +22,23 @@ echo -e "${BOLD}  TikTok Influencer Scout — Status${RESET}"
 divider
 echo ""
 
-# --- Service status via launchctl ---
-if launchctl print "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null | grep -q "state = running"; then
-  PID=$(launchctl print "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null | grep "pid =" | awk '{print $3}')
-  echo -e "  Status:    ${GREEN}● Running${RESET} (PID $PID)"
-else
-  # Check if service is loaded but not running
-  if launchctl print "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null | grep -q "state ="; then
-    STATE=$(launchctl print "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null | grep "state =" | awk '{print $3}')
-    echo -e "  Status:    ${RED}● Not running${RESET} (state: $STATE)"
+# --- Process status via lock file ---
+if [ -f "$LOCK_FILE" ]; then
+  PID=$(cat "$LOCK_FILE" 2>/dev/null)
+  if [ -n "$PID" ] && kill -0 "$PID" 2>/dev/null; then
+    echo -e "  Status:    ${GREEN}● Running${RESET} (PID $PID)"
   else
-    echo -e "  Status:    ${RED}● Not installed${RESET}"
-    echo -e "  ${DIM}Run setup.command to install.${RESET}"
+    echo -e "  Status:    ${RED}● Stale lock${RESET} (PID $PID not running)"
+    echo -e "  ${DIM}Run start.command to restart.${RESET}"
   fi
+else
+  echo -e "  Status:    ${RED}● Not running${RESET}"
+  echo -e "  ${DIM}Run start.command to start.${RESET}"
 fi
 
 # --- Status file details ---
 if [ -f "$STATUS_FILE" ]; then
   echo ""
-
-  # Parse JSON with python (available on all Macs)
   python3 -c "
 import json, sys
 from datetime import datetime
@@ -103,24 +99,13 @@ else
   echo -e "  ${DIM}(no log file yet)${RESET}"
 fi
 
-# --- Recent errors ---
-if [ -f "$ERR_FILE" ] && [ -s "$ERR_FILE" ]; then
-  echo ""
-  divider
-  echo -e "  ${RED}Recent errors:${RESET}"
-  echo ""
-  tail -10 "$ERR_FILE" | while IFS= read -r line; do
-    echo -e "  ${RED}$line${RESET}"
-  done
-fi
-
 echo ""
 divider
 echo ""
 echo -e "  ${DIM}Commands:${RESET}"
-echo -e "  ${DIM}  Restart:  launchctl kickstart -k gui/$(id -u)/$SERVICE_LABEL${RESET}"
-echo -e "  ${DIM}  Stop:     launchctl bootout gui/$(id -u)/$SERVICE_LABEL${RESET}"
-echo -e "  ${DIM}  Logs:     tail -f $LOG_FILE${RESET}"
+echo -e "  ${DIM}  Start:    double-click start.command${RESET}"
+echo -e "  ${DIM}  Stop:     pkill -f start.command${RESET}"
+echo -e "  ${DIM}  Logs:     tail -f /tmp/tiktok-lookup.log${RESET}"
 echo ""
 echo -e "  Press any key to close..."
 read -n 1 -s

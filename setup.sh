@@ -5,10 +5,7 @@ set -e
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ENV_FILE="$PROJECT_DIR/.claude/.env"
 ENV_EXAMPLE="$PROJECT_DIR/.claude/.env.example"
-PLIST_TEMPLATE="$PROJECT_DIR/.claude/skills/tiktok-lookup/launchd/com.tiktok-lookup-py.plist.template"
-PLIST_DEST="$HOME/Library/LaunchAgents/com.tiktok-scout.plist"
-BOT_PY="$PROJECT_DIR/.claude/skills/tiktok-lookup/scripts/bot.py"
-SERVICE_LABEL="com.tiktok-scout"
+START_CMD="$PROJECT_DIR/start.command"
 
 # Colors
 BOLD='\033[1m'
@@ -63,10 +60,7 @@ else
   ok "uv installed"
 fi
 
-# Resolve to absolute path for plist
-UV_BIN="$(cd "$(dirname "$UV_BIN")" && pwd)/$(basename "$UV_BIN")"
-
-# Symlink to ~/.local/bin/uv so scripts always find it
+# Symlink to ~/.local/bin/uv so start.command always finds it
 mkdir -p "$HOME/.local/bin"
 if [ "$UV_BIN" != "$HOME/.local/bin/uv" ]; then
   ln -sf "$UV_BIN" "$HOME/.local/bin/uv"
@@ -97,46 +91,53 @@ if [ -r "$CHAT_DB" ]; then
 else
   echo ""
   echo -e "  ${YELLOW}${BOLD}Full Disk Access is required to read iMessages.${RESET}"
-  echo -e "  ${DIM}Opening System Settings — enable Full Disk Access for your terminal app.${RESET}"
   echo ""
+  echo -e "  ${DIM}Grant Full Disk Access to your terminal app:${RESET}"
+  echo -e "  ${DIM}  System Settings > Privacy & Security > Full Disk Access${RESET}"
+  echo -e "  ${DIM}  Enable: Terminal (or iTerm / your terminal app)${RESET}"
+  echo ""
+  echo -e "  ${DIM}Opening System Settings now...${RESET}"
   open "x-apple.systempreferences:com.apple.preference.security?Privacy_AllFiles"
-  echo -e "  ${DIM}After enabling, restart your terminal and run setup again.${RESET}"
+  echo -e "  ${DIM}After enabling, quit and reopen Terminal, then run setup again.${RESET}"
+  echo ""
   echo -e "  ${DIM}Press any key to continue anyway...${RESET}"
   read -n 1 -s
 fi
 
-# ── 4. Install launchd service ──
-step "④" "Installing background service"
+# ── 4. Register Login Item ──
+step "④" "Registering auto-start on login"
+chmod +x "$START_CMD"
 
-# Stop existing service
-launchctl bootout "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null || true
-# Also clean up legacy Login Item and processes
-osascript -e 'tell application "System Events" to delete every login item whose name is "TikTok Scout Bot"' 2>/dev/null || true
-pkill -f "start.command.*bot" 2>/dev/null || true
-rm -f /tmp/tiktok-scout-bot.lock
+# Remove legacy launchd service if present
+launchctl bootout "gui/$(id -u)/com.tiktok-scout" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/com.tiktok-scout.plist"
 
-# Generate plist with resolved paths
-mkdir -p "$HOME/Library/LaunchAgents"
-sed \
-  -e "s|{{UV_PATH}}|$UV_BIN|g" \
-  -e "s|{{BOT_PY}}|$BOT_PY|g" \
-  -e "s|{{PROJECT_DIR}}|$PROJECT_DIR|g" \
-  "$PLIST_TEMPLATE" > "$PLIST_DEST"
-ok "Installed $PLIST_DEST"
+osascript << APPLESCRIPT 2>/dev/null && ok "Login Item registered — bot starts automatically on login" || true
+tell application "System Events"
+  set existingItems to every login item whose path is "$START_CMD"
+  if (count of existingItems) is 0 then
+    make new login item at end of login items with properties {path:"$START_CMD", hidden:true, name:"TikTok Scout Bot"}
+  end if
+end tell
+APPLESCRIPT
 
-# ── 5. Start service ──
+# ── 5. Start now ──
 step "⑤" "Starting bot"
-launchctl bootstrap "gui/$(id -u)" "$PLIST_DEST"
+
+# Kill any existing bot processes
+pkill -f "tiktok-scout-bot" 2>/dev/null || true
+pkill -f "bot.py" 2>/dev/null || true
+rm -f /tmp/tiktok-scout-bot.lock
+sleep 1
+
+# Start in background — inherits Terminal's Full Disk Access
+nohup bash "$START_CMD" >> /tmp/tiktok-lookup.log 2>&1 &
 sleep 3
 
-# Check if running
-if launchctl print "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null | grep -q "state = running"; then
-  ok "Bot is running"
-elif [ -f "/tmp/tiktok-lookup.log" ] && tail -3 /tmp/tiktok-lookup.log | grep -q "Watching from rowid"; then
+if [ -f "/tmp/tiktok-lookup.log" ] && tail -3 /tmp/tiktok-lookup.log | grep -q "Watching from rowid"; then
   ok "Bot is running"
 else
-  echo -e "  ${YELLOW}!${RESET}  Bot may not have started. Check status:"
-  echo -e "  ${DIM}    ./status.command${RESET}"
+  echo -e "  ${YELLOW}!${RESET}  Check status: ./status.command"
 fi
 
 echo ""

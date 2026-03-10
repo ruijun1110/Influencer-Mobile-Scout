@@ -96,7 +96,8 @@ def preflight() -> list[str]:
                 errors.append(
                     'Cannot read Messages database — Full Disk Access required.\n'
                     '  → System Settings > Privacy & Security > Full Disk Access\n'
-                    '  → Enable access for Terminal (or iTerm/your terminal app).'
+                    '  → Enable access for Terminal (or iTerm/your terminal app)\n'
+                    '  → Then quit and reopen Terminal, and run: bash setup.command'
                 )
             else:
                 errors.append(f'Messages database error: {e}')
@@ -113,10 +114,23 @@ def preflight() -> list[str]:
         errors.append('osascript not found — this tool requires macOS.')
 
     # 4. uv available (for spawning scout/lookup)
-    try:
-        subprocess.run(['uv', '--version'], capture_output=True, timeout=5)
-    except FileNotFoundError:
-        errors.append('uv not found on PATH. Run setup.command again.')
+    # uv runs us, but the venv PATH may not include uv itself.
+    # Search common locations and add to PATH if found.
+    import shutil
+    uv_path = shutil.which('uv')
+    if not uv_path:
+        for candidate in [
+            Path.home() / '.local' / 'bin' / 'uv',
+            Path.home() / '.cargo' / 'bin' / 'uv',
+            Path('/opt/homebrew/bin/uv'),
+            Path('/usr/local/bin/uv'),
+        ]:
+            if candidate.is_file():
+                uv_path = str(candidate)
+                os.environ['PATH'] = str(candidate.parent) + ':' + os.environ.get('PATH', '')
+                break
+    if not uv_path:
+        errors.append(f'uv not found on PATH. Run setup.command again.')
 
     return errors
 

@@ -8,9 +8,6 @@ DIM='\033[2m'
 YELLOW='\033[0;33m'
 RESET='\033[0m'
 
-SERVICE_LABEL="com.tiktok-scout"
-PLIST="$HOME/Library/LaunchAgents/com.tiktok-scout.plist"
-
 divider() { echo -e "${DIM}──────────────────────────────────────────${RESET}"; }
 ok()      { echo -e "  ${GREEN}✓${RESET}  $1"; }
 info()    { echo -e "  ${DIM}→  $1${RESET}"; }
@@ -27,23 +24,21 @@ echo -e "  ${YELLOW}Press any key to continue, or Ctrl+C to cancel.${RESET}"
 read -n 1 -s
 echo ""
 
-# 1. Stop and unload launchd service
+# 1. Stop bot
 info "Stopping bot..."
-launchctl bootout "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null || true
-# Also clean up legacy processes
 pkill -f "bot.py" 2>/dev/null || true
 pkill -f "start.command" 2>/dev/null || true
+sleep 1
 ok "Bot stopped"
 
-# 2. Remove launchd plist
-if [ -f "$PLIST" ]; then
-  rm "$PLIST"
-  ok "LaunchAgent removed"
-fi
-
-# 3. Remove legacy Login Item
+# 2. Remove Login Item
 osascript -e 'tell application "System Events" to delete every login item whose name is "TikTok Scout Bot"' 2>/dev/null || true
-ok "Login Item removed (if any)"
+ok "Login Item removed"
+
+# 3. Remove legacy launchd service
+launchctl bootout "gui/$(id -u)/com.tiktok-scout" 2>/dev/null || true
+rm -f "$HOME/Library/LaunchAgents/com.tiktok-scout.plist"
+ok "LaunchAgent removed (if any)"
 
 # 4. Remove .env
 if [ -f "$PROJECT_DIR/.claude/.env" ]; then

@@ -1,16 +1,29 @@
 #!/bin/bash
-# start.command — Start the bot via launchd (or directly if launchd not set up)
+# start.command — Runs the iMessage bot. Double-click or add as Login Item.
+# Terminal must have Full Disk Access for the bot to read iMessages.
 cd "$(dirname "$0")"
 
-SERVICE_LABEL="com.tiktok-scout"
-PLIST="$HOME/Library/LaunchAgents/com.tiktok-scout.plist"
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-if [ -f "$PLIST" ]; then
-  # Use launchd (preferred — handles single instance, auto-restart, logging)
-  launchctl bootout "gui/$(id -u)/$SERVICE_LABEL" 2>/dev/null || true
-  launchctl bootstrap "gui/$(id -u)" "$PLIST"
-  echo "Bot started via launchd. Check status: ./status.command"
-else
-  echo "LaunchAgent not installed. Run setup.command first."
-  exit 1
+LOCK_FILE="/tmp/tiktok-scout-bot.lock"
+
+# Validate lock file — remove if stale
+if [ -f "$LOCK_FILE" ]; then
+  existing_pid=$(cat "$LOCK_FILE" 2>/dev/null)
+  if [ -n "$existing_pid" ] && kill -0 "$existing_pid" 2>/dev/null; then
+    echo "[bot] Already running (PID $existing_pid). Exiting."
+    exit 0
+  else
+    rm -f "$LOCK_FILE"
+  fi
 fi
+
+echo $$ > "$LOCK_FILE"
+trap 'rm -f "$LOCK_FILE"' EXIT INT TERM HUP
+
+# Restart loop — if bot crashes, restart after 10 seconds
+while true; do
+  uv run .claude/skills/tiktok-lookup/scripts/bot.py 2>&1
+  echo "[$(date +%H:%M:%S)] Bot exited, restarting in 10s..."
+  sleep 10
+done
