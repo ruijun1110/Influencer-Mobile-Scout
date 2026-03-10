@@ -30,18 +30,16 @@ echo ""
 
 # ── 1. uv ──
 step "①" "Checking dependencies"
-# Ensure common uv install locations are on PATH
+UV_BIN="$HOME/.local/bin/uv"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-if command -v uv &>/dev/null; then
-  ok "uv $(uv --version | awk '{print $2}') already installed"
+if [ -x "$UV_BIN" ] || command -v uv &>/dev/null; then
+  UV_BIN="$(command -v uv 2>/dev/null || echo "$UV_BIN")"
+  ok "uv $("$UV_BIN" --version | awk '{print $2}') already installed"
 else
   info "Installing uv..."
   curl -LsSf https://astral.sh/uv/install.sh | sh
-  # Source the env file the installer creates, if present
-  [ -f "$HOME/.local/bin/env" ] && source "$HOME/.local/bin/env"
-  [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
-  export PATH="$HOME/.local/bin:$PATH"
-  if ! command -v uv &>/dev/null; then
+  # Installer always places binary at ~/.local/bin/uv
+  if [ ! -x "$UV_BIN" ]; then
     err "uv install failed. Visit: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
   fi
