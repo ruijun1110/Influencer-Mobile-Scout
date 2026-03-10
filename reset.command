@@ -45,9 +45,10 @@ else
   ok ".env not found (already clean)"
 fi
 
-# 4. Clear log
+# 4. Clear log and lock
 rm -f /tmp/tiktok-lookup.log
-ok "Log cleared"
+rm -f /tmp/tiktok-scout-bot.lock
+ok "Log and lock cleared"
 
 echo ""
 divider
