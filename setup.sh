@@ -30,11 +30,16 @@ echo ""
 
 # ── 1. uv ──
 step "①" "Checking dependencies"
+# Ensure common uv install locations are on PATH
+export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 if command -v uv &>/dev/null; then
   ok "uv $(uv --version | awk '{print $2}') already installed"
 else
   info "Installing uv..."
   curl -LsSf https://astral.sh/uv/install.sh | sh
+  # Source the env file the installer creates, if present
+  [ -f "$HOME/.local/bin/env" ] && source "$HOME/.local/bin/env"
+  [ -f "$HOME/.cargo/env" ] && source "$HOME/.cargo/env"
   export PATH="$HOME/.local/bin:$PATH"
   if ! command -v uv &>/dev/null; then
     err "uv install failed. Visit: https://docs.astral.sh/uv/getting-started/installation/"
@@ -49,10 +54,12 @@ if [ ! -f "$ENV_FILE" ]; then
   cp "$ENV_EXAMPLE" "$ENV_FILE"
   ok "Created .claude/.env"
   echo ""
-  echo -e "  ${YELLOW}${BOLD}Opening your config file — add your TikHub API key, then save and close.${RESET}"
+  echo -e "  ${YELLOW}${BOLD}Opening your config file — add your TikHub API key, then save it.${RESET}"
   echo -e "  ${DIM}Get a key at: https://tikhub.io${RESET}"
   echo ""
-  open -W "$ENV_FILE"
+  open "$ENV_FILE"
+  echo -e "  ${DIM}Press any key once you've saved your API key...${RESET}"
+  read -n 1 -s
 else
   ok ".claude/.env already exists"
 fi
