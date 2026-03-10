@@ -39,14 +39,13 @@ cd Influencer-Mobile-Scout
 
 ### 2. Run setup
 
-```bash
-bash setup.sh
-```
+Double-click **`setup.command`** in Finder.
 
 This will:
 - Install `uv` if not already present
 - Generate the launchd plist with your local paths
 - Create `.claude/.env` from the template and open it for editing
+- Start the iMessage bot automatically
 
 ### 3. Fill in your API key
 
@@ -71,11 +70,11 @@ This is a one-time manual step.
 
 ## iMessage Bot
 
-Start the background daemon:
+**First time:** the bot starts automatically at the end of `setup.command`.
 
-```bash
-launchctl load ~/Library/LaunchAgents/com.tiktok-lookup.plist
-```
+**After a manual stop or reinstall:** double-click **`start.command`** in Finder.
+
+The bot restarts automatically on every login — you normally won't need to do anything after setup.
 
 Once running, send messages from any phone that can iMessage your Mac:
 

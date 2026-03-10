@@ -39,14 +39,13 @@ cd Influencer-Mobile-Scout
 
 ### 2. 运行安装脚本
 
-```bash
-bash setup.sh
-```
+在 Finder 中双击 **`setup.command`**。
 
 脚本将自动完成：
 - 安装 `uv`（如未安装）
 - 根据本机路径生成 launchd plist 文件
 - 从模板创建 `.claude/.env` 并打开供编辑
+- 自动启动 iMessage 机器人
 
 ### 3. 填写 API Key
 
@@ -71,11 +70,11 @@ iMessage 机器人需要读取 `~/Library/Messages/chat.db`，必须手动开启
 
 ## iMessage 机器人
 
-启动后台守护进程：
+**首次使用：** 机器人会在 `setup.command` 结束时自动启动。
 
-```bash
-launchctl load ~/Library/LaunchAgents/com.tiktok-lookup.plist
-```
+**手动停止后或重新安装后：** 在 Finder 中双击 **`start.command`**。
+
+机器人在每次登录时自动启动，正常情况下安装后无需再做任何操作。
 
 启动后，从任意可以 iMessage 你 Mac 的手机发送以下内容：
 
