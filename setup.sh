@@ -30,20 +30,42 @@ echo ""
 
 # ── 1. uv ──
 step "①" "Checking dependencies"
-UV_BIN="$HOME/.local/bin/uv"
 export PATH="$HOME/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
-if [ -x "$UV_BIN" ] || command -v uv &>/dev/null; then
-  UV_BIN="$(command -v uv 2>/dev/null || echo "$UV_BIN")"
-  ok "uv $("$UV_BIN" --version | awk '{print $2}') already installed"
+
+# Find uv wherever it may be installed
+UV_BIN="$(command -v uv 2>/dev/null)"
+if [ -z "$UV_BIN" ]; then
+  # Check known non-standard locations
+  for candidate in \
+    "$HOME/.local/bin/uv" \
+    "$HOME/.cargo/bin/uv" \
+    "/opt/homebrew/bin/uv" \
+    "/usr/local/bin/uv"; do
+    if [ -x "$candidate" ]; then
+      UV_BIN="$candidate"
+      break
+    fi
+  done
+fi
+
+if [ -n "$UV_BIN" ]; then
+  ok "uv $("$UV_BIN" --version | awk '{print $2}') found at $UV_BIN"
 else
   info "Installing uv..."
   curl -LsSf https://astral.sh/uv/install.sh | sh
-  # Installer always places binary at ~/.local/bin/uv
+  UV_BIN="$HOME/.local/bin/uv"
   if [ ! -x "$UV_BIN" ]; then
     err "uv install failed. Visit: https://docs.astral.sh/uv/getting-started/installation/"
     exit 1
   fi
   ok "uv installed"
+fi
+
+# Symlink to ~/.local/bin/uv so start.command always finds it
+mkdir -p "$HOME/.local/bin"
+if [ "$UV_BIN" != "$HOME/.local/bin/uv" ]; then
+  ln -sf "$UV_BIN" "$HOME/.local/bin/uv"
+  info "Linked uv to ~/.local/bin/uv"
 fi
 
 # ── 2. .env ──
